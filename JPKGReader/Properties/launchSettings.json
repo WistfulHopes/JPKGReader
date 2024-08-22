@@ -1,8 +1,8 @@
-{
+﻿{
   "profiles": {
     "JPKGReader": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\Users\\Razmoth\\Desktop\\Programs\\quickbms\\Scripts\\main.34.jp.co.ganbarion.endan.obb\""
+      "commandLineArgs": "\"D:\\DRAGON BALL PROJECT_Multi\\download.jpkg\""
     }
   }
 }
