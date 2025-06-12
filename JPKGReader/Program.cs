@@ -12,7 +12,7 @@ public class Program
     }
     public static void Main(string[] args)
     {
-        if (args.Length < 1)
+        if (args.Length != 1)
         {
             Console.WriteLine("JPKGReader <file>");
             return;
@@ -27,15 +27,10 @@ public class Program
         JPKG pkg;
         using var fs = File.OpenRead(args[0]);
         Stream fsContents;
-        if (args.Length > 1)
-        {
-            fsContents = File.OpenRead(args[1]);
-        }
-        else
-        {
-            fsContents = new MemoryStream();
-        }
-
+        if (File.Exists(args[0] + "_contents"))
+            fsContents = File.OpenRead(args[0] + "_contents");
+        else fsContents = new MemoryStream();
+        
         foreach (var version in _versions)
         {
             try

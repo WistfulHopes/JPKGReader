@@ -6,7 +6,6 @@ namespace JPKGReader;
 public class JPKGV3 : JPKG
 {
     private const uint Seed = 0x9A44EDF5;
-    private XORShift32 state;
     public long Version { get; set; }
     public long Size { get; set; }
     public List<Node> Files { get; set; } = [];
@@ -22,13 +21,10 @@ public class JPKGV3 : JPKG
 
     private void ReadHeader()
     {
-        byte[] buffer = new byte[0x30];
+        byte[] buffer = new byte[0x48];
         Reader.Read(buffer);
-        state = XORShift32.Decrypt(buffer, Seed);
+        XORShift32.Decrypt(buffer, Seed);
         
-        using BinaryWriter bw = new(new FileStream("test.bin", FileMode.Create, FileAccess.Write));
-        bw.Write(buffer);
-
         using MemoryStream ms = new(buffer);
         using BinaryReader reader = new(ms);
         var signature = Encoding.UTF8.GetString(reader.ReadBytes(4));
@@ -50,13 +46,13 @@ public class JPKGV3 : JPKG
 
     private void ReadFiles()
     {
-        byte[] buffer = new byte[Size - 8];
+        byte[] buffer = new byte[Size - 40];
         Reader.Read(buffer);
-        state = XORShift32.Decrypt(buffer, state);
+        XORShift32.Decrypt(buffer, Seed);
 
         using MemoryStream ms = new(buffer);
         using BinaryReader reader = new(ms);
-        while (reader.BaseStream.Position < Size - 8)
+        while (reader.BaseStream.Position < buffer.Length)
         {
             Files.Add(new(reader.ReadUInt64(), reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt64()));
         }
@@ -93,7 +89,7 @@ public class JPKGV3 : JPKG
                     data = decompressedBuffer.AsSpan(0, (int)file.DecompressedSize);
                 }
 
-                var fileName = $"{file.ID:X8}." + (Extensions.TryGetValue(Encoding.UTF8.GetString(data[..4]), out var extension) ? extension : "dat");
+                var fileName = $"{file.ID:X16}." + (Extensions.TryGetValue(Encoding.UTF8.GetString(data[..4]), out var extension) ? extension : "dat");
 
                 Console.WriteLine($"Writing {fileName}");
                 File.WriteAllBytes($"output/{fileName}", data.ToArray());
