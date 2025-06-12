@@ -7,13 +7,12 @@ public class Program
     {
         _versions = [
             stream => new JPKGV1(stream),
-            stream => new JPKGV3(stream),
             stream => new JPKGV4(stream)
         ];
     }
     public static void Main(string[] args)
     {
-        if (args.Length != 1)
+        if (args.Length < 1)
         {
             Console.WriteLine("JPKGReader <file>");
             return;
@@ -21,12 +20,21 @@ public class Program
 
         if (!File.Exists(args[0]))
         {
-            Console.WriteLine("File does not exist !!");
+            Console.WriteLine("File does not exist!");
             return;
         }
 
         JPKG pkg;
         using var fs = File.OpenRead(args[0]);
+        Stream fsContents;
+        if (args.Length > 1)
+        {
+            fsContents = File.OpenRead(args[1]);
+        }
+        else
+        {
+            fsContents = new MemoryStream();
+        }
 
         foreach (var version in _versions)
         {
@@ -42,5 +50,17 @@ public class Program
 
             fs.Position = 0;
         }
+        
+        try
+        {
+            pkg = new JPKGV3(fs, fsContents);
+            pkg.Parse();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error while parsing {nameof(pkg)}, {ex}");
+        }
+
+        fs.Position = 0;
     }
 }

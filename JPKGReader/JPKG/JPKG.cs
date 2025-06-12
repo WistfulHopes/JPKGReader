@@ -4,6 +4,7 @@ namespace JPKGReader;
 public abstract class JPKG : IDisposable
 {
     private readonly BinaryReader _reader;
+    private readonly BinaryReader _contentsReader;
     private readonly Dictionary<string, string> _extensions = new()
     {
         ["OggS"] = "ogg",
@@ -32,10 +33,19 @@ public abstract class JPKG : IDisposable
         ["jSCR"] = "jscr"
     };
 
-    public BinaryReader Reader => _reader;
-    public Dictionary<string, string> Extensions => _extensions;
+    protected BinaryReader Reader => _reader;
+    public BinaryReader ContentsReader => _contentsReader;
+    protected Dictionary<string, string> Extensions => _extensions;
 
-    public JPKG(Stream stream) => _reader = new BinaryReader(stream, Encoding.UTF8, true);
+    protected JPKG(Stream stream, Stream? contentsStream = null)
+    {
+        _reader = new BinaryReader(stream, Encoding.UTF8, true);
+        if (contentsStream != null)
+        {
+            _contentsReader = new BinaryReader(contentsStream, Encoding.UTF8, true);
+        }
+        else _contentsReader = new BinaryReader(new MemoryStream(), Encoding.UTF8, true);
+    }
 
     public abstract void Parse();
 

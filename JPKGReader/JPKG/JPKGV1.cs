@@ -35,7 +35,7 @@ public class JPKGV1 : JPKG
     {
         var signature = Encoding.UTF8.GetString(Reader.ReadBytes(4));
         if (signature != "jPKG")
-            throw new Exception("Invalid signautre !!");
+            throw new Exception("Invalid signature!");
 
         FilesCount = Reader.ReadInt32();
         BlocksCount = Reader.ReadInt32();
@@ -47,7 +47,7 @@ public class JPKGV1 : JPKG
 
         if (Version != 1)
         {
-            throw new Exception($"Expected version 1, got {Version} instead, not supported !!");
+            throw new Exception($"Expected version 1, got {Version} instead, not supported!");
         }
     }
 
@@ -62,7 +62,7 @@ public class JPKGV1 : JPKG
 
         if (Files.Count != FilesCount)
         {
-            throw new IOException($"Expected {FilesCount} nodes, got {Files.Count} instead !!");
+            throw new IOException($"Expected {FilesCount} nodes, got {Files.Count} instead!");
         }
     }
 
@@ -77,7 +77,7 @@ public class JPKGV1 : JPKG
 
         if (Blocks.Count != BlocksCount)
         {
-            throw new IOException($"Expected {BlocksCount} nodes, got {Blocks.Count} instead !!");
+            throw new IOException($"Expected {BlocksCount} nodes, got {Blocks.Count} instead!");
         }
     }
 

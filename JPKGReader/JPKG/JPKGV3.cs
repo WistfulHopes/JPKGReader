@@ -5,149 +5,106 @@ using System.Text;
 namespace JPKGReader;
 public class JPKGV3 : JPKG
 {
-    private const int MaxBlockSize = 0x40000;
     private const uint Seed = 0x9A44EDF5;
-
-    public int FilesCount { get; set; }
-    public int BlocksCount { get; set; }
-    public int FilesSize { get; set; }
-    public int BlocksSize { get; set; }
-    public int DataOffset { get; set; }
+    private XORShift32 state;
     public long Version { get; set; }
     public long Size { get; set; }
     public List<Node> Files { get; set; } = [];
-    public List<Entry> Blocks { get; set; } = [];
 
-    public JPKGV3(Stream stream) : base(stream) { }
+    public JPKGV3(Stream stream, Stream? contentsStream = null) : base(stream, contentsStream) { }
 
     public override void Parse()
     {
         ReadHeader();
-
-        byte[] buffer = new byte[FilesSize + BlocksSize];
-        Reader.Read(buffer);
-        XORShift32.Decrypt(buffer, Seed);
-
-        using MemoryStream ms = new(buffer);
-        using BinaryReader reader = new(ms);
-        ReadFiles(reader);
-        ReadBlocks(reader);
-
-        using MemoryStream blocksStream = new();
-        ProcessBlocks(blocksStream);
-        ProcessFiles(blocksStream);
+        ReadFiles();
+        ProcessFiles();
     }
 
     private void ReadHeader()
     {
         byte[] buffer = new byte[0x30];
         Reader.Read(buffer);
-        XORShift32.Decrypt(buffer, Seed);
+        state = XORShift32.Decrypt(buffer, Seed);
+        
+        using BinaryWriter bw = new(new FileStream("test.bin", FileMode.Create, FileAccess.Write));
+        bw.Write(buffer);
 
         using MemoryStream ms = new(buffer);
         using BinaryReader reader = new(ms);
         var signature = Encoding.UTF8.GetString(reader.ReadBytes(4));
-        if (signature != "jPKG")
-            throw new Exception("Invalid signautre !!");
+        if (signature != "jPKH")
+            throw new Exception("Invalid signature!");
 
-        Version = reader.ReadInt64();
-        var num = reader.ReadInt32();
-        FilesCount = reader.ReadInt32();
-        BlocksCount = reader.ReadInt32();
-        FilesSize = reader.ReadInt32();
-        BlocksSize = reader.ReadInt32();
-        DataOffset = reader.ReadInt32();
-        var num2 = reader.ReadInt32();
+        Version = reader.ReadInt32();
+        _ = reader.ReadInt64();
+        _ = reader.ReadInt64();
+        _ = reader.ReadInt64();
+        _ = reader.ReadInt64();
         Size = reader.ReadInt64();
 
         if (Version != 3)
         {
-            throw new Exception($"Expected version 3, got {Version} instead, not supported !!");
+            throw new Exception($"Expected version 3, got {Version} instead, not supported!");
         }
     }
 
-    private void ReadFiles(BinaryReader reader)
+    private void ReadFiles()
     {
-        while (reader.BaseStream.Position < FilesSize)
-        {
-            Files.Add(new(reader.ReadUInt64(), reader.ReadInt64(), reader.ReadInt64()));
-        }
+        byte[] buffer = new byte[Size - 8];
+        Reader.Read(buffer);
+        state = XORShift32.Decrypt(buffer, state);
 
-        if (Files.Count != FilesCount)
+        using MemoryStream ms = new(buffer);
+        using BinaryReader reader = new(ms);
+        while (reader.BaseStream.Position < Size - 8)
         {
-            throw new IOException($"Expected {FilesCount} nodes, got {Files.Count} instead !!");
+            Files.Add(new(reader.ReadUInt64(), reader.ReadInt64(), reader.ReadInt64(), reader.ReadInt64()));
         }
     }
 
-    private void ReadBlocks(BinaryReader reader)
+    private void ProcessFiles()
     {
-        while (reader.BaseStream.Position - FilesSize < BlocksSize)
-        {
-            Blocks.Add(new(reader.ReadInt64(), reader.ReadInt32(), reader.ReadInt32()));
-        }
-
-        if (Blocks.Count != BlocksCount)
-        {
-            throw new IOException($"Expected {BlocksCount} nodes, got {Blocks.Count} instead !!");
-        }
-    }
-
-    private void ProcessBlocks(Stream stream)
-    {
-        var compressedBuffer = ArrayPool<byte>.Shared.Rent(MaxBlockSize);
-        var decompressedBuffer = ArrayPool<byte>.Shared.Rent(MaxBlockSize);
-        try
-        {
-            foreach (var block in Blocks)
-            {
-                Reader.BaseStream.Position = block.Offset;
-                Reader.Read(compressedBuffer, 0, block.Size);
-
-                XORShift32.Decrypt(compressedBuffer.AsSpan(0, block.Size), Seed);
-
-                if (block.Size == MaxBlockSize)
-                {
-                    stream.Write(compressedBuffer, 0, block.Size);
-                }
-                else
-                {
-                    var numWrite = LZ4Codec.Decode(compressedBuffer.AsSpan(0, block.Size), decompressedBuffer.AsSpan(0, MaxBlockSize));
-                    if (numWrite == -1)
-                    {
-                        throw new IOException($"Lz4 decompression error, write {numWrite} bytes but expected {MaxBlockSize} bytes");
-                    }
-
-                    stream.Write(decompressedBuffer, 0, numWrite);
-                }
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(compressedBuffer);
-            ArrayPool<byte>.Shared.Return(decompressedBuffer);
-        }
-
-        stream.Position = 0;
-    }
-
-    private void ProcessFiles(Stream stream)
-    {
-        using BinaryReader reader = new(stream, Encoding.UTF8, true);
-
         Directory.CreateDirectory($"output");
 
         foreach (var file in Files)
         {
-            reader.BaseStream.Position = file.Offset;
-            byte[] data = reader.ReadBytes((int)file.Size);
+            var compressedBuffer = ArrayPool<byte>.Shared.Rent((int)file.CompressedSize);
+            var decompressedBuffer = ArrayPool<byte>.Shared.Rent((int)file.DecompressedSize);
+            try
+            {
+                ContentsReader.BaseStream.Position = file.Offset;
+                ContentsReader.Read(compressedBuffer, 0, (int)file.CompressedSize);
 
-            var fileName = $"{file.ID:X8}." + (Extensions.TryGetValue(Encoding.UTF8.GetString(data[..4]), out var extension) ? extension : "dat");
+                XORShift32.Decrypt(compressedBuffer.AsSpan(0, (int)file.CompressedSize), Seed);
 
-            Console.WriteLine($"Writing {fileName}");
-            File.WriteAllBytes($"output/{fileName}", data);
+                Span<byte> data;
+                if (file.CompressedSize == file.DecompressedSize)
+                {
+                    data = compressedBuffer.AsSpan(0, (int)file.CompressedSize);
+                }
+                else
+                {
+                    var numWrite = LZ4Codec.Decode(compressedBuffer.AsSpan(0, (int)file.CompressedSize), decompressedBuffer.AsSpan(0, (int)file.DecompressedSize));
+                    if (numWrite == -1)
+                    {
+                        throw new IOException($"Lz4 decompression error, write {numWrite} bytes but expected {(int)file.DecompressedSize} bytes");
+                    }
+
+                    data = decompressedBuffer.AsSpan(0, (int)file.DecompressedSize);
+                }
+
+                var fileName = $"{file.ID:X8}." + (Extensions.TryGetValue(Encoding.UTF8.GetString(data[..4]), out var extension) ? extension : "dat");
+
+                Console.WriteLine($"Writing {fileName}");
+                File.WriteAllBytes($"output/{fileName}", data.ToArray());
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(compressedBuffer);
+                ArrayPool<byte>.Shared.Return(decompressedBuffer);
+            }
         }
     }
 
-    public record Node(ulong ID, long Offset, long Size);
-    public record Entry(long Offset, int Size, int Type);
+    public record Node(ulong ID, long Offset, long DecompressedSize, long CompressedSize);
 }

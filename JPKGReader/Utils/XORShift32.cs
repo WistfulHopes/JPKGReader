@@ -18,7 +18,7 @@ public class XORShift32
         return _state;
     }
 
-    public static void Decrypt(Span<byte> bytes, uint seed)
+    public static XORShift32 Decrypt(Span<byte> bytes, uint seed)
     {
         var s32 = new XORShift32(seed);
 
@@ -27,5 +27,18 @@ public class XORShift32
         {
             buffer[i] ^= s32.Next();
         }
+
+        return s32;
+    }
+
+    public static XORShift32 Decrypt(Span<byte> bytes, XORShift32 s32)
+    {
+        var buffer = MemoryMarshal.Cast<byte, uint>(bytes);
+        for (var i = 0; i < buffer.Length; i++)
+        {
+            buffer[i] ^= s32.Next();
+        }
+
+        return s32;
     }
 }
