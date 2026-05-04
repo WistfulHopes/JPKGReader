@@ -136,12 +136,13 @@ public class JPKGV4 : JPKG
 
         Directory.CreateDirectory($"output");
 
-        foreach (var file in Files)
+        for (int i = 0; i < Files.Count; i++)
         {
+            var file = Files[i];
             reader.BaseStream.Position = file.Offset;
             byte[] data = reader.ReadBytes((int)file.Size);
 
-            var fileName = $"{file.ID:X8}." + (Extensions.TryGetValue(Encoding.UTF8.GetString(data[..4]), out var extension) ? extension : "dat");
+            var fileName = $"{i}." + (Extensions.TryGetValue(Encoding.UTF8.GetString(data[..4]), out var extension) ? extension : "dat");
 
             Console.WriteLine($"Writing {fileName}");
             File.WriteAllBytes($"output/{fileName}", data);

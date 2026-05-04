@@ -48,7 +48,7 @@ public class Program
         
         try
         {
-            pkg = new JPKGV3(fs, fsContents);
+            pkg = new JPKGV5(fs, fsContents);
             pkg.Parse();
         }
         catch (Exception ex)
