@@ -16,10 +16,10 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
 
     - name: Install .NET Core
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 8.0.x
       
@@ -30,7 +30,7 @@ jobs:
       run: dotnet publish /t:JPKGReader /p:Configuration=Release
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
         name: net8.0
         path: JPKGReader/bin/Release/net8.0/publish
