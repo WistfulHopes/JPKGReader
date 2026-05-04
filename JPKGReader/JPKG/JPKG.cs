@@ -30,7 +30,8 @@ public abstract class JPKG : IDisposable
         ["mesh"] = "mesh",
         ["skel"] = "skel",
         ["jSWD"] = "jswd",
-        ["jSCR"] = "jscr"
+        ["jSCR"] = "jscr",
+        ["jBIN"] = "jbin"
     };
 
     protected BinaryReader Reader => _reader;

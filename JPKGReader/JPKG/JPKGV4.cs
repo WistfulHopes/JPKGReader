@@ -142,7 +142,7 @@ public class JPKGV4 : JPKG
             reader.BaseStream.Position = file.Offset;
             byte[] data = reader.ReadBytes((int)file.Size);
 
-            var fileName = $"{i}." + (Extensions.TryGetValue(Encoding.UTF8.GetString(data[..4]), out var extension) ? extension : "dat");
+            var fileName = $"{i:D8}_{file.ID:X16}." + (Extensions.GetValueOrDefault(Encoding.UTF8.GetString(data[..4]), "dat"));
 
             Console.WriteLine($"Writing {fileName}");
             File.WriteAllBytes($"output/{fileName}", data);
